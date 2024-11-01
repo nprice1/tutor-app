@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct TutorApp: App {
+    
+    @StateObject private var options = Options()
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            HomeView().environmentObject(options)
         }
     }
 }

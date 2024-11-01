@@ -1,0 +1,13 @@
+//
+//  Config.xcconfig
+//  Tutor
+//
+//  Created by Nolan Price on 9/11/24.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+API_KEY = <API KEY GOES HERE>
+TEMP = 1.0
+MODEL = gpt-4o-mini
