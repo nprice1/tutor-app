@@ -3,9 +3,9 @@ import SwiftUI
 struct ConversationView: View {
     @EnvironmentObject var options: Options
     
-    @State private var persona: String = ""
-    @State private var place: String = ""
-    @State private var topic: String = ""
+    @State private var persona: String = "Waiter"
+    @State private var place: String = "Restaurant"
+    @State private var topic: String = "Taking my order"
     
     var body: some View {
         VStack(spacing: 20) {
@@ -34,7 +34,9 @@ struct ConversationView: View {
                             place: place,
                             topic: topic
                         ),
-                        tools: Tools(options: options)
+                        tools: Tools(options: options),
+                        autoPlayEnabled: true,
+                        tokenizeTextEnabled: true
                     )
             ) {
                 Text("Submit")

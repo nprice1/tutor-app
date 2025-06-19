@@ -4,7 +4,6 @@ import SwiftOpenAI
 
 class AudioTranscriber: ObservableObject {
     private var audioRecorder: AVAudioRecorder?
-    private var chatGptClient = ChatGptClient()
     
     @Published var isRecording = false;
     @Published var transcribedAudio = ""
@@ -54,7 +53,7 @@ class AudioTranscriber: ObservableObject {
             self.transcribedAudio = "Transcribing..."
         }
         do {
-            let response = try await chatGptClient.speechToText(fileUrl: fileURL, language: language) ?? "Failed to transcribe audio"
+            let response = try await ChatGptClient.client.speechToText(fileUrl: fileURL, language: language) ?? "Failed to transcribe audio"
             DispatchQueue.main.async {
                 self.transcribedAudio = response
                 self.isTranscribing = false	

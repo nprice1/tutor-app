@@ -13,11 +13,20 @@ struct ChatMessage {
     let id: UUID
     let text: String
     let type: ChatMessageType
+    let tokenizedWords: [TokenizedWord]?
     
     init(text: String, type: ChatMessageType) {
         self.id = UUID()
         self.text = text
         self.type = type
+        self.tokenizedWords = nil
+    }
+    
+    init(text: String, type: ChatMessageType, tokenizedWords: [TokenizedWord]) {
+        self.id = UUID()
+        self.text = text
+        self.type = type
+        self.tokenizedWords = tokenizedWords
     }
 }
 
@@ -30,64 +39,83 @@ struct MessagingView: View {
     @State private var toolsEnabled = false
     @State private var isLoadingMessage = true
     @StateObject private var audioTranscriber = AudioTranscriber()
+    @StateObject private var audioSpeaker = AudioSpeaker()
     
     private let chatBot: ChatBot
     private let tools: Tools
+    private let autoPlayEnabled: Bool
+    private let tokenizeTextEnabled: Bool
     
-    init(bot: ChatBot, tools: Tools) {
+    init(bot: ChatBot, tools: Tools, autoPlayEnabled: Bool, tokenizeTextEnabled: Bool) {
         self.chatBot = bot
         self.tools = tools
+        self.autoPlayEnabled = autoPlayEnabled
+        self.tokenizeTextEnabled = tokenizeTextEnabled
     }
     
     var body: some View {
         VStack {
-            // Display chat history and initial message
-            ScrollViewReader { value in
-                ScrollView {
-                    VStack(alignment: .leading) {
-                        ForEach(chatHistory, id: \.id) { message in
-                            HStack {
-                                MessageView(
-                                    text: message.text,
-                                    isCurrentUser: message.type == .user,
-                                    onTextSelected: { selectedText in
-                                        DispatchQueue.main.async {
-                                            self.highlightedText = selectedText
-                                            self.toolsEnabled = !selectedText.isEmpty
-                                        }
-                                    },
-                                    onTripleTap: { _ in
-                                        DispatchQueue.main.async {
-                                            self.highlightedText = message.text
-                                            self.toolsEnabled = true
-                                        }
-                                        Task {
-                                            do {
-                                                await self.tools.textToSpeech(text: message.text)
-                                            }
-                                        }
-                                    }
-                                )
-                                .id(message.id)
-                            }
-                        }
-                        if (isLoadingMessage) {
-                            MessageView(
-                                text: "...",
-                                isCurrentUser: false,
-                                onTextSelected: { _ in },
-                                onTripleTap: { _ in }
-                            )
-                        }
+            chatScrollView
+            inputBar
+        }
+        .task {
+            if chatHistory.isEmpty {
+                await fetchInitialMessage()
+            }
+        }
+        .onChange(of: audioTranscriber.transcribedAudio) {
+            self.messageText = audioTranscriber.transcribedAudio
+        }
+    }
+    
+    private var chatScrollView: some View {
+        ScrollViewReader { value in
+            ScrollView {
+                VStack(alignment: .leading) {
+                    ForEach(chatHistory, id: \.id) { message in
+                        chatBubble(for: message)
+                            .id(message.id)
+                    }
+
+                    if isLoadingMessage {
+                        MessageView(
+                            text: "...",
+                            tokenizedWords: nil,
+                            isCurrentUser: false
+                        )
                     }
                 }
-                .onChange(of: chatHistory.count) {
-                    value.scrollTo(chatHistory.last?.id, anchor: .bottom)
-                }
-                .textSelection(.enabled)
             }
-            
-            // Input TextField
+            .onChange(of: chatHistory.count) {
+                value.scrollTo(chatHistory.last?.id, anchor: .bottom)
+                if autoPlayEnabled {
+                    Task { await speakLastMessage() }
+                }
+            }
+            .textSelection(.enabled)
+        }
+    }
+
+    @ViewBuilder
+    private func chatBubble(for message: ChatMessage) -> some View {
+        if message.type == .system {
+            SpeechBubbleTextView(
+                text: message.text,
+                words: message.tokenizedWords ?? []
+            )
+            .padding(.vertical, 4)
+            .padding(.horizontal)
+        } else {
+            MessageView(
+                text: message.text,
+                tokenizedWords: nil,
+                isCurrentUser: message.type == .user
+            )
+        }
+    }
+
+    private var inputBar: some View {
+        VStack {
             TextField("Type a message...", text: $messageText)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(3)
@@ -100,73 +128,85 @@ struct MessagingView: View {
                         }
                     }
                 }
-            
-            // Buttons: Record and Tools
+
             HStack {
-                // Send Button
-                Button(action: {
-                    Task {
-                        await sendMessage()
-                    }
-                }) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.title)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .clipShape(Circle())
-                }
-                .padding(.leading, 8)
-                
-                // Record Button
-                Button(action: {
-                    Task {
-                        do {
-                            try await toggleRecording()
-                        } catch {
-                            print("Failed to send message: \(error)")
-                        }
-                    }
-                }) {
-                    Image(systemName: audioTranscriber.isRecording ? "stop.circle.fill" : "mic.fill")
-                        .font(.title)
-                        .padding()
-                        .background(audioTranscriber.isTranscribing ? Color.gray : Color.red)
-                        .foregroundColor(.white)
-                        .clipShape(Circle())
-                }
-                .disabled(audioTranscriber.isTranscribing)
-                
-                // Tools Button
-                if (toolsEnabled) {
-                    NavigationLink(
-                        destination: ToolsView(
-                            text: highlightedText ?? "",
-                            options: options
-                        )
-                    ) {
-                        Image(systemName: "ellipsis.circle.fill")
-                            .font(.title)
-                            .padding()
-                            .background(Color.gray)
-                            .foregroundColor(.white)
-                            .clipShape(Circle())
-                    }
-                }
+                sendButton
+                recordButton
+                toolsButton
+                stopButton
             }
             .padding()
         }
-        .task{
-            if (chatHistory.isEmpty) {
-                await fetchInitialMessage()
-            }
+    }
+
+    private var sendButton: some View {
+        Button(action: {
+            Task { await sendMessage() }
+        }) {
+            Image(systemName: "paperplane.fill")
+                .font(.title)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .clipShape(Circle())
         }
-        .onChange(of: audioTranscriber.transcribedAudio) {
-            DispatchQueue.main.async {
-                self.messageText = audioTranscriber.transcribedAudio
+        .padding(.leading, 8)
+    }
+
+    private var recordButton: some View {
+        Button(action: {
+            Task {
+                do {
+                    try await toggleRecording()
+                } catch {
+                    print("Recording error: \(error)")
+                }
+            }
+        }) {
+            Image(systemName: audioTranscriber.isRecording ? "stop.circle.fill" : "mic.fill")
+                .font(.title)
+                .padding()
+                .background(audioTranscriber.isTranscribing ? Color.gray : Color.red)
+                .foregroundColor(.white)
+                .clipShape(Circle())
+        }
+        .disabled(audioTranscriber.isTranscribing)
+    }
+
+    private var toolsButton: some View {
+        Group {
+            if toolsEnabled {
+                NavigationLink(
+                    destination: ToolsView(text: highlightedText ?? "", options: options)
+                ) {
+                    Image(systemName: "ellipsis.circle.fill")
+                        .font(.title)
+                        .padding()
+                        .background(Color.gray)
+                        .foregroundColor(.white)
+                        .clipShape(Circle())
+                }
             }
         }
     }
+
+    private var stopButton: some View {
+        Group {
+            if audioSpeaker.isPlaying {
+                Button(action: {
+                    stopSpeaking()
+                }) {
+                    Image(systemName: "stop.circle.fill")
+                        .font(.title)
+                        .padding()
+                        .background(Color.red)
+                        .foregroundColor(.white)
+                        .clipShape(Circle())
+                }
+            }
+        }
+    }
+
     
     private func fetchInitialMessage() async {
         DispatchQueue.main.async {
@@ -206,9 +246,13 @@ struct MessagingView: View {
         do {
             let messages = try await fetchMessagesFunction()
             if let messages {
-                return messages.map {
-                    message in ChatMessage(text: message, type: ChatMessageType.system)
+                var chatMessages: [ChatMessage] = []
+                for message in messages {
+                    let tokenizedWords = tokenizeTextEnabled ? try await self.tools.getTokenizedResponse(response: message) : nil
+                    let chatMessage = ChatMessage(text: message, type: .system, tokenizedWords: tokenizedWords ?? [])
+                    chatMessages.append(chatMessage)
                 }
+                return chatMessages
             } else {
                 return [ChatMessage(text: "Failed to get response", type: ChatMessageType.error)]
             }
@@ -218,7 +262,7 @@ struct MessagingView: View {
             return [ChatMessage(text: "Unknown error: error=\(error)", type: ChatMessageType.error)]
         }
     }
-    
+               
     private func toggleRecording() async throws {
         if (audioTranscriber.isRecording) {
             audioTranscriber.stopRecording()
@@ -226,6 +270,20 @@ struct MessagingView: View {
         } else {
             await audioTranscriber.startRecording()
         }
+    }
+    
+    private func speakLastMessage() async {
+        if let lastMessage = chatHistory.last {
+            if lastMessage.type == .system {
+                Task {
+                    await audioSpeaker.textToSpeech(options: self.options, text: lastMessage.text)
+                }
+            }
+        }
+    }
+    
+    private func stopSpeaking() {
+        self.audioSpeaker.stopAudio()
     }
 
 }
@@ -239,7 +297,9 @@ struct MessagingView_Previews: PreviewProvider {
             ),
             tools: Tools(
                 options: Options()
-            )
+            ),
+            autoPlayEnabled: true,
+            tokenizeTextEnabled: true
         ).environmentObject(Options())
     }
     

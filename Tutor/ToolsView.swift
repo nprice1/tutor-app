@@ -3,15 +3,19 @@ import AVFoundation
 import SwiftOpenAI
 
 struct ToolsView: View {
+    
     private let text: String
     private let tools: Tools
+    private let options: Options
     
     @State private var resultText: String
+    @StateObject private var audioSpeaker = AudioSpeaker()
     
     init(text: String, options: Options) {
         self.text = text
         self.tools = Tools(options: options)
         self.resultText = ""
+        self.options = options
     }
     
     var body: some View {
@@ -59,7 +63,7 @@ struct ToolsView: View {
                         Text("Speak")
                             .frame(maxWidth: .infinity)
                     }
-                    .disabled(tools.isPlayingAudio())
+                    .disabled(audioSpeaker.isPlaying)
                     .buttonStyle(ModernButtonStyle())
                     
                     Button(action: {
@@ -97,10 +101,10 @@ struct ToolsView: View {
     }
     
     private func speakText() async {
-        if (tools.isAudioLoaded()) {
-            tools.replayAudio()
+        if (audioSpeaker.isAudioLoaded()) {
+            audioSpeaker.replayAudio()
         } else {
-            await tools.textToSpeech(text: text)
+            await audioSpeaker.textToSpeech(options: options, text: text)
         }
     }
     
@@ -144,6 +148,6 @@ struct ModernButtonStyle: ButtonStyle {
 
 struct ToolsView_Previews: PreviewProvider {
     static var previews: some View {
-        ToolsView(text: "Example text", options: Options())
+        ToolsView(text: "ありがとうございました", options: Options())
     }
 }

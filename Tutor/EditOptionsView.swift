@@ -40,6 +40,23 @@ struct EditOptionsView: View {
                     .cornerRadius(10)
             }
             .padding()
+            
+            NavigationLink(
+                destination: PromptEditView(
+                    prompt: options.quizPrompt,
+                    onSave: { newPrompt in
+                        options.quizPrompt = newPrompt
+                    }
+                )
+            ) {
+                Text("Edit Quiz Prompt")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+            .padding()
         }
         .navigationTitle("Edit Options")
         .padding()

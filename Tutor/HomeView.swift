@@ -4,10 +4,6 @@ struct HomeView: View {
     
     @EnvironmentObject var options: Options
     
-//    @State private var selectedNativeLanguage: LanguageOption = options.userLanguage
-//    @State private var selectedLearningLanguage: LanguageOption = options.learningLanguage
-//    @State private var proficiencyLevel: String = options.level
-//    
     var body: some View {
         NavigationView() {
             VStack {
@@ -50,7 +46,9 @@ struct HomeView: View {
                                 type: .nativeToLearning,
                                 options: options
                             ),
-                            tools: Tools(options: options)
+                            tools: Tools(options: options),
+                            autoPlayEnabled: false,
+                            tokenizeTextEnabled: false
                         )
                     ) {
                         Text("Translate to \(options.learningLanguage.label)")
@@ -67,7 +65,9 @@ struct HomeView: View {
                                 type: .learningToNative,
                                 options: options
                             ),
-                            tools: Tools(options: options)
+                            tools: Tools(options: options),
+                            autoPlayEnabled: false,
+                            tokenizeTextEnabled: false
                         )
                     ) {
                         Text("Translate from \(options.learningLanguage.label)")
@@ -83,13 +83,33 @@ struct HomeView: View {
                             bot: PhraseBot(
                                 options: options
                             ),
-                            tools: Tools(options: options)
+                            tools: Tools(options: options),
+                            autoPlayEnabled: false,
+                            tokenizeTextEnabled: false
                         )
                     ) {
                         Text("Phrase practice")
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(Color.indigo)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    
+                    NavigationLink(
+                        destination: MessagingView(
+                            bot: QuizBot(
+                                options: options
+                            ),
+                            tools: Tools(options: options),
+                            autoPlayEnabled: false,
+                            tokenizeTextEnabled: false
+                        )
+                    ) {
+                        Text("Quiz")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.purple)
                             .foregroundColor(.white)
                             .cornerRadius(10)
                     }
