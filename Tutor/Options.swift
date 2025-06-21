@@ -161,7 +161,7 @@ class Options: ObservableObject {
     @Published var translatePrompt: String = "Please translate {{.Text}} into {{.NativeLanguage}}"
     @Published var tokenizePrompt: String = """
     Take the following {{.LearningLanguage}} sentence and tokenize it into each word. Please keep any punctuation that is attached
-    to any words, do not create separate entries for them. Please dont create separate entries for common words or grammatical structures
+    to any words, do not create separate entries for them. Please dont create separate entries for grammatical structures
     such as sentence particles, instead keep them attached to the words they modify. For each word, create a JSON object matching this
     schema:
     ```

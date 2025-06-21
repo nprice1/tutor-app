@@ -12,27 +12,9 @@ import AVFoundation
 class Tools {
     
     private let options: Options
-    private var audioPlayer: AVAudioPlayer?
     
     init(options: Options) {
         self.options = options
-        self.audioPlayer = nil
-    }
-    
-    func translate(text: String) async throws -> String {
-        return try await GoogleClient.client.translate(text: text, language: options.nativeLanguage.value)
-    }
-    
-    func translate_chatGpt(text: String) async throws -> String? {
-        let prompt = replaceVariables(prompt: self.options.translatePrompt, text: text)
-        let message: ChatCompletionParameters.Message = .init(role: .system, content: .text(prompt))
-        return try await ChatGptClient.client.getRawResponse(messages: [message], responseFormat: .text)
-    }
-    
-    func writeInHiragana(text: String) async throws -> String? {
-        let prompt = replaceVariables(prompt: self.options.hiraganaPrompt, text: text)
-        let message: ChatCompletionParameters.Message = .init(role: .system, content: .text(prompt))
-        return try await ChatGptClient.client.getRawResponse(messages: [message], responseFormat: .text)
     }
     
     func getTokenizedResponse(response: String) async throws -> [TokenizedWord]? {

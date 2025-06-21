@@ -13,13 +13,13 @@ struct ChatMessage {
     let id: UUID
     let text: String
     let type: ChatMessageType
-    let tokenizedWords: [TokenizedWord]?
+    let tokenizedWords: [TokenizedWord]
     
     init(text: String, type: ChatMessageType) {
         self.id = UUID()
         self.text = text
         self.type = type
-        self.tokenizedWords = nil
+        self.tokenizedWords = []
     }
     
     init(text: String, type: ChatMessageType, tokenizedWords: [TokenizedWord]) {
@@ -35,8 +35,6 @@ struct MessagingView: View {
     
     @State private var messageText: String = ""
     @State private var chatHistory: [ChatMessage] = []
-    @State private var highlightedText: String? = nil
-    @State private var toolsEnabled = false
     @State private var isLoadingMessage = true
     @StateObject private var audioTranscriber = AudioTranscriber()
     @StateObject private var audioSpeaker = AudioSpeaker()
@@ -80,7 +78,7 @@ struct MessagingView: View {
                     if isLoadingMessage {
                         MessageView(
                             text: "...",
-                            tokenizedWords: nil,
+                            tokenizedWords: [],
                             isCurrentUser: false
                         )
                     }
@@ -99,16 +97,20 @@ struct MessagingView: View {
     @ViewBuilder
     private func chatBubble(for message: ChatMessage) -> some View {
         if message.type == .system {
-            SpeechBubbleTextView(
+            MessageView(
                 text: message.text,
-                words: message.tokenizedWords ?? []
+                tokenizedWords: message.tokenizedWords,
+                isCurrentUser: false,
+                onPlayAudio: {
+                    Task {
+                        await audioSpeaker.textToSpeech(options: self.options, text: message.text)
+                    }
+                }
             )
-            .padding(.vertical, 4)
-            .padding(.horizontal)
         } else {
             MessageView(
                 text: message.text,
-                tokenizedWords: nil,
+                tokenizedWords: message.tokenizedWords,
                 isCurrentUser: message.type == .user
             )
         }
@@ -132,7 +134,6 @@ struct MessagingView: View {
             HStack {
                 sendButton
                 recordButton
-                toolsButton
                 stopButton
             }
             .padding()
@@ -171,23 +172,6 @@ struct MessagingView: View {
                 .clipShape(Circle())
         }
         .disabled(audioTranscriber.isTranscribing)
-    }
-
-    private var toolsButton: some View {
-        Group {
-            if toolsEnabled {
-                NavigationLink(
-                    destination: ToolsView(text: highlightedText ?? "", options: options)
-                ) {
-                    Image(systemName: "ellipsis.circle.fill")
-                        .font(.title)
-                        .padding()
-                        .background(Color.gray)
-                        .foregroundColor(.white)
-                        .clipShape(Circle())
-                }
-            }
-        }
     }
 
     private var stopButton: some View {
@@ -298,7 +282,7 @@ struct MessagingView_Previews: PreviewProvider {
             tools: Tools(
                 options: Options()
             ),
-            autoPlayEnabled: true,
+            autoPlayEnabled: false,
             tokenizeTextEnabled: true
         ).environmentObject(Options())
     }
