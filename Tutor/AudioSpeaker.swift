@@ -13,12 +13,12 @@ class AudioSpeaker: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var audioPlayer: AVAudioPlayer?
     @Published public var isPlaying = false
     
-    func textToSpeech(options: Options, text: String) async -> Void {
+    func textToSpeech(language: String, text: String) async -> Void {
         let audioSession = AVAudioSession.sharedInstance()
         do {
             try audioSession.setCategory(.playAndRecord, mode: .default, policy: .default, options: .defaultToSpeaker)
             
-            let data = try await GoogleClient.client.textToSpeech(text: text, language: options.learningLanguage.value)
+            let data = try await GoogleClient.client.textToSpeech(text: text, language: language)
             // Initialize the audio player with the data
             audioPlayer = try AVAudioPlayer(data: data)
             audioPlayer?.delegate = self

@@ -1,41 +1,60 @@
 import SwiftOpenAI
+import Foundation
 
 class ConversationBot: ChatBot {
-
+    
     private let options: Options
-    private let persona: String
-    private let place: String
-    private let topic: String
     
     private var history: [ChatCompletionParameters.Message]
+    private var setup: String?
+    private var persona: String?
+    private var lastTutorMessage: String?
     
-    init(options: Options, persona: String, place: String, topic: String) {
+    init(options: Options) {
         self.options = options
-        self.persona = persona
-        self.place = place
-        self.topic = topic
         self.history = []
     }
     
-    public func getInitialPrompt() async throws -> String? {
+    public func getInitialPrompt() async throws -> [ChatBotMessage]? {
         let systemPrompt = replaceVariables(prompt: self.options.conversationPrompt.system)
         let initPrompt = replaceVariables(prompt: self.options.conversationPrompt.initialize ?? "")
         self.history = [
             .init(role: .system, content: .text(systemPrompt)),
             .init(role: .user, content: .text(initPrompt)),
         ]
-        return try await getResponse()
+        guard let response = try await getConversationTopicResponse() else { return nil }
+        self.setup = response.setup
+        self.persona = response.persona
+        self.lastTutorMessage = response.opening
+        return [
+            ChatBotMessage(message: response.setup, language: options.nativeLanguage.value),
+            ChatBotMessage(message: response.persona, language: options.nativeLanguage.value),
+            ChatBotMessage(message: response.opening, language: options.learningLanguage.value)
+        ]
     }
     
-    public func getAnswer(for userInput: String) async throws -> [String]? {
-        let answer = self.options.conversationPrompt.answer.replacingOccurrences(of: "{{.Answer}}", with: userInput)
+    public func getAnswer(for userInput: String) async throws -> [ChatBotMessage]? {
+        guard let analysisResponse = try await getAnalysisResponse(for: userInput) else { return nil }
+        if analysisResponse.classification != "NATURAL" {
+            return [
+                ChatBotMessage(message: analysisResponse.feedback, language: options.nativeLanguage.value),
+                ChatBotMessage(message: analysisResponse.correction, language: options.nativeLanguage.value),
+            ]
+        }
+        let answer = replaceVariables(prompt: self.options.conversationPrompt.answer, answer: userInput)
         self.history.append(.init(role: .user, content: .text(answer)))
         guard let response = try await getResponse() else { return nil }
-        return [ response ]
+        self.lastTutorMessage = response
+        return [
+            ChatBotMessage(message: response, language: options.learningLanguage.value),
+        ]
     }
     
-    func getResponseLanguage() -> String {
-        return self.options.learningLanguage.value
+    private func getAnalysisResponse(for userInput: String) async throws -> ConversationAnalysisResponse? {
+        let analysis = replaceVariables(prompt: self.options.conversationAnalysisPrompt, answer: userInput)
+        let newHistory = self.history + [ .init(role: .user, content: .text(analysis)) ];
+        let response = try await ChatGptClient.client.getRawResponse(messages: newHistory, responseFormat: .jsonObject)
+        return try JSONDecoder().decode(ConversationAnalysisResponse.self, from: response.data(using: .utf8)!)
     }
     
     private func getResponse() async throws -> String? {
@@ -44,11 +63,28 @@ class ConversationBot: ChatBot {
         return response
     }
     
+    func getResponseLanguage() -> String {
+        return self.options.learningLanguage.value
+    }
+    
+    private func getConversationTopicResponse() async throws -> ConversationTopicResponse? {
+        let response = try await ChatGptClient.client.getRawResponse(messages: self.history, responseFormat: .jsonObject)
+        self.history.append(.init(role: .assistant, content: .text(response)))
+        return try JSONDecoder().decode(ConversationTopicResponse.self, from: response.data(using: .utf8)!)
+    }
+    
     private func replaceVariables(prompt: String) -> String {
-        return prompt.replacingOccurrences(of: "{{.Language}", with: self.options.learningLanguage.label)
-                     .replacingOccurrences(of: "{{.Persona}}", with: self.persona)
-                     .replacingOccurrences(of: "{{.Place}}", with: self.place)
-                     .replacingOccurrences(of: "{{.Topic}}", with: self.topic)
+        return replaceVariables(prompt: prompt, answer: nil)
+    }
+    
+    private func replaceVariables(prompt: String, answer: String?) -> String {
+        return prompt.replacingOccurrences(of: "{{.LearningLanguage}", with: self.options.learningLanguage.label)
+                     .replacingOccurrences(of: "{{.NativeLanguage}", with: self.options.nativeLanguage.label)
+                     .replacingOccurrences(of: "{{.Level}}", with: self.options.level)
+                     .replacingOccurrences(of: "{{.Answer}}", with: answer ?? "")
+                     .replacingOccurrences(of: "{{.Setup}}", with: setup ?? "")
+                     .replacingOccurrences(of: "{{.Persona}}", with: persona ?? "")
+                     .replacingOccurrences(of: "{{.LastTutorMessage}}", with: lastTutorMessage ?? "")
     }
     
 }

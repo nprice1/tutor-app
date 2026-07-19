@@ -23,7 +23,7 @@ class TranslationBot: ChatBot {
         self.currentExercise = ""
     }
     
-    public func getInitialPrompt() async throws -> String? {
+    public func getInitialPrompt() async throws -> [ChatBotMessage]? {
         let systemPrompt = replaceVariables(prompt: options.translationPrompt.system)
         self.initPrompt = replaceVariables(prompt: options.translationPrompt.initialize ?? "")
         self.history = [
@@ -33,13 +33,15 @@ class TranslationBot: ChatBot {
         let translationPrompt = try await getTranslationResponse()
         if let translationPrompt {
             self.currentExercise = translationPrompt.exercise ?? ""
-            return translationPrompt.exercise
+            return [
+                ChatBotMessage(message: translationPrompt.exercise ?? "", language: options.learningLanguage.value)
+            ]
         } else {
             return nil
         }
     }
     
-    public func getAnswer(for userInput: String) async throws -> [String]? {
+    public func getAnswer(for userInput: String) async throws -> [ChatBotMessage]? {
         let answer = options.translationPrompt.answer.replacingOccurrences(of: "{{.Exercise}}", with: self.currentExercise).replacingOccurrences(of: "{{.Answer}}", with: userInput)
         self.history.append(.init(role: .user, content: .text(answer)))
         // Get the correction for the users answer
@@ -49,9 +51,9 @@ class TranslationBot: ChatBot {
         guard let newExercise = try await getTranslationResponse() else { return nil }
         self.currentExercise = newExercise.exercise ?? ""
         return [
-            correction.correction ?? "",
-            correction.explanation ?? "",
-            newExercise.exercise ?? ""
+            ChatBotMessage(message: correction.correction ?? "", language: options.nativeLanguage.value),
+            ChatBotMessage(message: correction.explanation ?? "", language: options.nativeLanguage.value),
+            ChatBotMessage(message: newExercise.exercise ?? "", language: options.learningLanguage.value),
         ]
     }
     

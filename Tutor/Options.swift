@@ -20,10 +20,27 @@ struct Prompt {
     let replacements: [String]
 }
 
+struct ConversationTopicResponse: Codable {
+    let setup: String
+    let opening: String
+    let persona: String
+}
+
+struct ConversationAnalysisResponse: Codable {
+    let classification: String
+    let feedback: String
+    let correction: String
+}
+
 struct ExercisePrompt: Codable {
     let exercise: String?
     let correction: String?
     let explanation: String?
+}
+
+struct ListeningPracticeResponse: Codable {
+    let conversation: String
+    let translation: String
 }
 
 struct TokenizedWordsResponse: Codable {
@@ -45,7 +62,8 @@ let languages = [
     LanguageOption(label: "German", value: "de"),
     LanguageOption(label: "Chinese", value: "zh"),
     LanguageOption(label: "Korean", value: "ko"),
-    LanguageOption(label: "Russian", value: "ru")
+    LanguageOption(label: "Russian", value: "ru"),
+    LanguageOption(label: "Icelandic", value: "is")
 ]
 
 class Options: ObservableObject {
@@ -54,21 +72,113 @@ class Options: ObservableObject {
     @Published var nativeLanguage: LanguageOption = languages[0]
     @Published var level: String = "intermediate"
     @Published var conversationPrompt: Prompt = Prompt(
-        answer: "{{.Answer}}",
-        initialize: "Please begin the conversation.",
+        answer: """
+        {{.Answer}}
+            
+        IMPORTANT: When you respond, please respond like a person: short and concise responses that maintain the flow of the conversation.
+        DO NOT ANSWER LIKE A ROBOT, this is meant for real conversation practice. Focus on maintaining human like conversations.
+        """,
+        initialize: """
+        Generate ONE new conversation topic.
+
+        Rules:
+        - Everyday real-life situation
+        - Not about language learning
+        - Not a classroom or study context
+        - Not dramatic or fantasy
+        - Something two people might casually talk about
+        - Short and simple setup
+
+        Return JSON with:
+        {
+          "setup": "1–2 sentences explaining the situation in English",
+          "opening": "first line spoken in natural {{.LearningLanguage}}",
+          "persona": "who the tutor is (friend, coworker, clerk, etc.)"
+        }
+        
+        Example:
+        {
+          "setup": "You're having lunch with a coworker. They recently went on a short trip.",
+          "opening": "この前の週末、ちょっと京都に行ってきたんだけどさ。",
+          "persona": "coworker"
+        }
+
+        """,
         system: """
-        You are a native {{.Language}} speaker. Your persona is {{.Persona}} and you are currently at {{.Place}}. You are engaging me
-        in a conversation about {{.Topic}}. I am new to {{.Language}}, so if I make any mistakes you should correct them
-        before continuing the conversation.
+        You generate realistic, everyday conversation scenarios
+        for {{.LearningLanguage}} listening practice.
+
+        You are NOT a teacher.
+        You do NOT explain language.
+        You speak and think like a native {{.LearningLanguage}} person.
+
+        Conversations must feel natural, casual, and human.
+        They must NOT feel like an AI or a lesson.
+
+        You always follow the output format exactly.
         """,
         replacements: [
-            "{{.Language}}",
+            "{{.LearningLanguage}}",
+            "{{.NativeLanguage}}",
+            "{{.Answer}}",
+            "{{.Setup}}",
             "{{.Persona}}",
-            "{{.Place}}",
-            "{{.Topic}}",
             "{{.Answer}}"
         ]
     )
+    @Published var conversationAnalysisPrompt: String = """
+        Conversation context:
+        - Situation: {{.Setup}}
+        - Persona: {{.Persona}}
+        - Last tutor message ({{.LearningLanguage}}):
+        "{{.LastTutorMessage}}"
+
+        User replied in {{.LearningLanguage}}:
+        "{{.Answer}}"
+
+        Classify the user's reply into ONE category:
+        - NATURAL: sounds fine
+        - UNDERSTANDABLE: slightly off but usable
+        - CONTEXT_ERROR: grammatically okay but meaning doesn't fit
+        - GRAMMAR_ERROR: meaning clear but grammar is wrong
+        - NON_SENSE: does not make sense in this conversation
+
+        Rules:
+        - Be lenient unless meaning is wrong
+        - Do NOT teach in {{.LearningLanguage}}
+        - {{.NativeLanguage}} is used ONLY for explanations
+        - {{.LearningLanguage}} replies must sound natural, not like a textbook
+
+        Return JSON:
+        {
+          "classification": "NATURAL | UNDERSTANDABLE | CONTEXT_ERROR | GRAMMAR_ERROR | NON_SENSE",
+          "feedback": "empty if NATURAL or UNDERSTANDABLE",
+          "correction": "only if correction is needed",
+        }
+
+        Examples: 
+        
+        Natural:
+        {
+          "classification": "NATURAL",
+          "feedback": "",
+          "correction": ""
+        }
+
+        Grammar error:
+        {
+          "classification": "GRAMMAR_ERROR",
+          "feedback": "You're very close. When talking about an experience, use 「行くのは」 instead of 「行くは」.",
+          "correction": "京都に行くのは楽しかった。"
+        }
+
+        Nonsense:
+        {
+          "classification": "NON_SENSE",
+          "feedback": "That response doesn't really fit the conversation. Try reacting to the trip or asking a question about it.",
+          "correction": ""
+        }
+    """
     @Published var translationPrompt: Prompt = Prompt(
         answer: """
         You asked me this: {{.Exercise}}
@@ -155,6 +265,43 @@ class Options: ObservableObject {
             "{{.Question}}",
             "{{.Level}}",
             "{{.Answer}}"
+        ]
+    )
+    @Published var listeningPracticePrompt: Prompt = Prompt(
+        answer: """
+        Continue the conversation, or start a new one if the conversation is over. Please provide the next part in the following JSON format:
+        {
+            \"conversation\": \"Current speakers part of the conversation in {{.LearningLanguage}} goes here\"
+            \"translation\": \"Translation of current speakers part of the conversation in {{.NativeLanguage}} goes here\"
+        }
+        """,
+        initialize: """
+        Come up with an example conversation to help me practice listenting to {{.LearningLanguage}}. Avoid telling childrens stories or myths, and
+        instead focus on example conversations one might here when travelling to a country where they speak {{.LearningLanguage}}.
+        I am at an {{.Level}} level for {{.LearningLanguage}},
+        so the conversation should focus on words/grammar that are suitable for my current proficiency level.
+        
+        You do not need to provide the full conversation, instead provide the conversation in chunks to make it sound more natural and have it be
+        easier to understand. Keep the conversation concise to closely resemble an actual conversation.
+        
+        The conversation should be between multiple simulated people. You should return responses for one speaker at a time. So for a 
+        conversation between Speaker A and Speaker B, the first response would only be for Speaker A.
+        
+        Return your response in the following JSON format:
+        
+        {
+            \"conversation\": \"Current speakers part of the conversation in {{.LearningLanguage}} goes here\"
+            \"translation\": \"Translation of current speakers part of the conversation in {{.NativeLanguage}} goes here\"
+        }
+        """,
+        system: """
+        You are a {{.LearningLanguage}} tutor. Your goal is to assist me in my comprehensive understanding of {{.LearningLanguage}}. You should
+        keep all your answers as concise as possible to simulate realistic conversations.
+        """,
+        replacements: [
+            "{{.NativeLanguage}}",
+            "{{.LearningLanguage}}",
+            "{{.Level}}",
         ]
     )
     @Published var hiraganaPrompt: String = "Please write {{.Text}} using only hiragana."

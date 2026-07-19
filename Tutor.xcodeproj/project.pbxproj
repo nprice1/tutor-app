@@ -25,7 +25,6 @@
 		1D4A017E2C94C0BA00C5D85E /* ConversationBot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4A017D2C94C0BA00C5D85E /* ConversationBot.swift */; };
 		1D51DC872CD157B200792BE9 /* TestBot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D51DC862CD157B200792BE9 /* TestBot.swift */; };
 		1D692F922C9B821E0096A3FF /* Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D692F912C9B821E0096A3FF /* Tools.swift */; };
-		1D692F962C9B997E0096A3FF /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D692F952C9B997E0096A3FF /* ConversationView.swift */; };
 		1D76FF502C9DF32F002298D9 /* PromptEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D76FF4F2C9DF32F002298D9 /* PromptEditView.swift */; };
 		1D85CB3D2C97997400EAE782 /* SpeechBubbleTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D85CB3C2C97997400EAE782 /* SpeechBubbleTextView.swift */; };
 		1DD5A7222CFE41E200852C21 /* GoogleAPIClientForREST_Texttospeech in Frameworks */ = {isa = PBXBuildFile; productRef = 1DD5A7212CFE41E200852C21 /* GoogleAPIClientForREST_Texttospeech */; };
@@ -36,6 +35,7 @@
 		1DFEBC8C2C938829009ADCB2 /* ChatGptClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DFEBC8B2C938829009ADCB2 /* ChatGptClient.swift */; };
 		A85EA76B2E073AD100690264 /* TokenWrapLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85EA76A2E073AD100690264 /* TokenWrapLayout.swift */; };
 		A85F5B782E04B5BB000CEFD8 /* WordDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85F5B772E04B5BB000CEFD8 /* WordDetailSheet.swift */; };
+		A8D276A22E4A8700002B58D0 /* ListeningPracticeBot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8D276A12E4A8700002B58D0 /* ListeningPracticeBot.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,7 +77,6 @@
 		1D4A017D2C94C0BA00C5D85E /* ConversationBot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationBot.swift; sourceTree = "<group>"; };
 		1D51DC862CD157B200792BE9 /* TestBot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestBot.swift; sourceTree = "<group>"; };
 		1D692F912C9B821E0096A3FF /* Tools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools.swift; sourceTree = "<group>"; };
-		1D692F952C9B997E0096A3FF /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		1D76FF4F2C9DF32F002298D9 /* PromptEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptEditView.swift; sourceTree = "<group>"; };
 		1D85CB3C2C97997400EAE782 /* SpeechBubbleTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechBubbleTextView.swift; sourceTree = "<group>"; };
 		1DD5A7252CFE464E00852C21 /* GoogleClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleClient.swift; sourceTree = "<group>"; };
@@ -85,6 +84,7 @@
 		1DFEBC8B2C938829009ADCB2 /* ChatGptClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGptClient.swift; sourceTree = "<group>"; };
 		A85EA76A2E073AD100690264 /* TokenWrapLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenWrapLayout.swift; sourceTree = "<group>"; };
 		A85F5B772E04B5BB000CEFD8 /* WordDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDetailSheet.swift; sourceTree = "<group>"; };
+		A8D276A12E4A8700002B58D0 /* ListeningPracticeBot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningPracticeBot.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -126,6 +126,7 @@
 				1D4A017D2C94C0BA00C5D85E /* ConversationBot.swift */,
 				1D4A017B2C94BA6F00C5D85E /* ChatBot.swift */,
 				1D247C3A2CD2E04000E63B77 /* QuizBot.swift */,
+				A8D276A12E4A8700002B58D0 /* ListeningPracticeBot.swift */,
 			);
 			path = Bots;
 			sourceTree = "<group>";
@@ -160,7 +161,6 @@
 				1D25F7772C92599B0044801B /* AudioTranscriber.swift */,
 				1D25F7762C92541A0044801B /* Config.xcconfig */,
 				1D25F7702C9239AD0044801B /* HomeView.swift */,
-				1D692F952C9B997E0096A3FF /* ConversationView.swift */,
 				1D25F7722C923A480044801B /* Options.swift */,
 				1D247C392CD2E01000E63B77 /* Bots */,
 				1DFEBC8B2C938829009ADCB2 /* ChatGptClient.swift */,
@@ -332,6 +332,7 @@
 				1D25F76F2C9238850044801B /* MessagingView.swift in Sources */,
 				1D2473932CD055AD0062BE74 /* PhraseBot.swift in Sources */,
 				1D2B2E4E2D025B3300EC6FF0 /* AudioSpeaker.swift in Sources */,
+				A8D276A22E4A8700002B58D0 /* ListeningPracticeBot.swift in Sources */,
 				1D51DC872CD157B200792BE9 /* TestBot.swift in Sources */,
 				1D2CFF762C9A4EF8008C341C /* MessageView.swift in Sources */,
 				1DFEBC8C2C938829009ADCB2 /* ChatGptClient.swift in Sources */,
@@ -344,7 +345,6 @@
 				1D692F922C9B821E0096A3FF /* Tools.swift in Sources */,
 				1D4A017A2C94B97800C5D85E /* EditOptionsView.swift in Sources */,
 				1D25F7452C92365F0044801B /* TutorApp.swift in Sources */,
-				1D692F962C9B997E0096A3FF /* ConversationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

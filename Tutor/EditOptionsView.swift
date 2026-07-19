@@ -7,22 +7,6 @@ struct EditOptionsView: View {
         
     var body: some View {
         VStack {
-            NavigationLink(
-                destination: PromptEditView(
-                    prompt: options.conversationPrompt,
-                    onSave: { newPrompt in
-                        options.conversationPrompt = newPrompt
-                    }
-                )
-            ) {
-                Text("Edit Conversation Prompt")
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-            }
-            .padding()
             
             NavigationLink(
                 destination: PromptEditView(

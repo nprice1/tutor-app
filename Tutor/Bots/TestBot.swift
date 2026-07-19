@@ -9,17 +9,15 @@ class TestBot: ChatBot {
         self.options = options
     }
     
-    public func getInitialPrompt() async throws -> String? {
-        return """
-        おはよう。元気？
-        """
+    public func getInitialPrompt() async throws -> [ChatBotMessage]? {
+        return [
+            ChatBotMessage.init(message: "おはよう。元気？", language: options.learningLanguage.value)
+        ]
     }
     
-    public func getAnswer(for userInput: String) async throws -> [String]? {
+    public func getAnswer(for userInput: String) async throws -> [ChatBotMessage]? {
         return [
-            """
-            おはよう。元気？
-            """
+            ChatBotMessage.init(message: "おはよう。元気？", language: options.learningLanguage.value)
         ]
     }
     

@@ -14,19 +14,22 @@ struct ChatMessage {
     let text: String
     let type: ChatMessageType
     let tokenizedWords: [TokenizedWord]
+    let language: String
     
-    init(text: String, type: ChatMessageType) {
+    init(text: String, language: String, type: ChatMessageType) {
         self.id = UUID()
         self.text = text
         self.type = type
         self.tokenizedWords = []
+        self.language = language
     }
     
-    init(text: String, type: ChatMessageType, tokenizedWords: [TokenizedWord]) {
+    init(text: String, language: String, type: ChatMessageType, tokenizedWords: [TokenizedWord]) {
         self.id = UUID()
         self.text = text
         self.type = type
         self.tokenizedWords = tokenizedWords
+        self.language = language
     }
 }
 
@@ -36,6 +39,9 @@ struct MessagingView: View {
     @State private var messageText: String = ""
     @State private var chatHistory: [ChatMessage] = []
     @State private var isLoadingMessage = true
+    @State private var previousChatSize = 0
+    @State private var finishedPlayingMessages = false;
+    @State private var autoTranscribe = false;
     @StateObject private var audioTranscriber = AudioTranscriber()
     @StateObject private var audioSpeaker = AudioSpeaker()
     
@@ -43,12 +49,20 @@ struct MessagingView: View {
     private let tools: Tools
     private let autoPlayEnabled: Bool
     private let tokenizeTextEnabled: Bool
+    private var autoContinueEnabled: Bool
     
-    init(bot: ChatBot, tools: Tools, autoPlayEnabled: Bool, tokenizeTextEnabled: Bool) {
+    init(bot: ChatBot,
+         tools: Tools,
+         autoPlayEnabled: Bool,
+         tokenizeTextEnabled: Bool,
+         autoContinueEnabled: Bool,
+         autoTranscribe: Bool) {
         self.chatBot = bot
         self.tools = tools
         self.autoPlayEnabled = autoPlayEnabled
         self.tokenizeTextEnabled = tokenizeTextEnabled
+        self.autoContinueEnabled = autoContinueEnabled
+        self.autoTranscribe = autoTranscribe
     }
     
     var body: some View {
@@ -86,11 +100,59 @@ struct MessagingView: View {
             }
             .onChange(of: chatHistory.count) {
                 value.scrollTo(chatHistory.last?.id, anchor: .bottom)
-                if autoPlayEnabled {
-                    Task { await speakLastMessage() }
+                let newMessages = Array(chatHistory[previousChatSize..<chatHistory.count])
+                previousChatSize = chatHistory.count
+                        
+                if (autoPlayEnabled && chatHistory.last?.type == .system) {
+                    finishedPlayingMessages = false
+                    Task {
+                        for message in newMessages {
+                            while (audioSpeaker.isPlaying) {
+                                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                            }
+                            if message.type == .system {
+                                await audioSpeaker.textToSpeech(language: message.language, text: message.text)
+                            }
+                        }
+                        while (audioSpeaker.isPlaying) {
+                            try? await Task.sleep(nanoseconds: 5_000_000_000)
+                        }
+                        finishedPlayingMessages = true
+                    }
                 }
             }
-            .textSelection(.enabled)
+            .onChange(of: finishedPlayingMessages) {
+                if (finishedPlayingMessages && autoContinueEnabled) {
+                    Task {
+                        await sendMessage()
+                    }
+                }
+                if (finishedPlayingMessages && autoTranscribe) {
+                    Task {
+                        do {
+                            try await toggleRecording()
+                        } catch {
+                            print("Recording error: \(error)")
+                        }
+                    }
+                }
+            }
+            .onChange(of: audioTranscriber.isTranscribing) {
+                if (autoTranscribe &&
+                    !audioTranscriber.isTranscribing &&
+                    !audioTranscriber.isRecording &&
+                    finishedPlayingMessages) {
+                    Task {
+                        await sendMessage()
+                    }
+                }
+            }
+            .onAppear {
+                UIApplication.shared.isIdleTimerDisabled = true
+            }
+            .onDisappear {
+                UIApplication.shared.isIdleTimerDisabled = false
+            }
         }
     }
 
@@ -103,7 +165,7 @@ struct MessagingView: View {
                 isCurrentUser: false,
                 onPlayAudio: {
                     Task {
-                        await audioSpeaker.textToSpeech(options: self.options, text: message.text)
+                        await audioSpeaker.textToSpeech(language: message.language, text: message.text)
                     }
                 }
             )
@@ -135,6 +197,7 @@ struct MessagingView: View {
                 sendButton
                 recordButton
                 stopButton
+                toggleAutoTranscribeButton
             }
             .padding()
         }
@@ -172,6 +235,7 @@ struct MessagingView: View {
                 .clipShape(Circle())
         }
         .disabled(audioTranscriber.isTranscribing)
+        .padding(.leading, 8)
     }
 
     private var stopButton: some View {
@@ -187,10 +251,24 @@ struct MessagingView: View {
                         .foregroundColor(.white)
                         .clipShape(Circle())
                 }
+                .padding(.leading, 8)
             }
         }
     }
 
+    private var toggleAutoTranscribeButton: some View {
+        Button(action: {
+            toggleAutoTranscribe()
+        }) {
+            Image(systemName: autoTranscribe ? "message.badge.waveform.fill" : "message.badge.waveform")
+                .font(.title)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .clipShape(Circle())
+        }
+        .padding(.leading, 8)
+    }
     
     private func fetchInitialMessage() async {
         DispatchQueue.main.async {
@@ -199,7 +277,7 @@ struct MessagingView: View {
         let messages = await getSystemResponse(fetchMessagesFunction: {
             let prompt = try await chatBot.getInitialPrompt()
             if let prompt {
-                return [prompt]
+                return prompt
             } else {
                 return []
             }
@@ -213,7 +291,7 @@ struct MessagingView: View {
     private func sendMessage() async {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         DispatchQueue.main.async {
-            chatHistory.append(ChatMessage(text: messageText, type: ChatMessageType.user))
+            chatHistory.append(ChatMessage(text: messageText, language: chatBot.getResponseLanguage(), type: ChatMessageType.user))
             isLoadingMessage = true
             messageText = ""
         }
@@ -226,24 +304,25 @@ struct MessagingView: View {
         }
     }
     
-    private func getSystemResponse(fetchMessagesFunction: @escaping () async throws -> [String]?) async -> [ChatMessage] {
+    private func getSystemResponse(fetchMessagesFunction: @escaping () async throws -> [ChatBotMessage]?) async -> [ChatMessage] {
         do {
             let messages = try await fetchMessagesFunction()
             if let messages {
                 var chatMessages: [ChatMessage] = []
                 for message in messages {
-                    let tokenizedWords = tokenizeTextEnabled ? try await self.tools.getTokenizedResponse(response: message) : nil
-                    let chatMessage = ChatMessage(text: message, type: .system, tokenizedWords: tokenizedWords ?? [])
+                    let shouldTokenize = tokenizeTextEnabled && message.language == options.learningLanguage.value
+                    let tokenizedWords = shouldTokenize ? try await self.tools.getTokenizedResponse(response: message.message) : nil
+                    let chatMessage = ChatMessage(text: message.message, language: message.language, type: .system, tokenizedWords: tokenizedWords ?? [])
                     chatMessages.append(chatMessage)
                 }
                 return chatMessages
             } else {
-                return [ChatMessage(text: "Failed to get response", type: ChatMessageType.error)]
+                return [ChatMessage(text: "Failed to get response", language: "en", type: ChatMessageType.error)]
             }
         } catch APIError.responseUnsuccessful(let description, let statusCode) {
-            return [ChatMessage(text: "OpenAI Error: status=\(statusCode) description=\(description)", type: ChatMessageType.error)]
+            return [ChatMessage(text: "OpenAI Error: status=\(statusCode) description=\(description)", language: "en", type: ChatMessageType.error)]
         } catch {
-            return [ChatMessage(text: "Unknown error: error=\(error)", type: ChatMessageType.error)]
+            return [ChatMessage(text: "Unknown error: error=\(error)", language: "en", type: ChatMessageType.error)]
         }
     }
                
@@ -252,22 +331,16 @@ struct MessagingView: View {
             audioTranscriber.stopRecording()
             await audioTranscriber.transcribeAudio(language: chatBot.getResponseLanguage())
         } else {
-            await audioTranscriber.startRecording()
-        }
-    }
-    
-    private func speakLastMessage() async {
-        if let lastMessage = chatHistory.last {
-            if lastMessage.type == .system {
-                Task {
-                    await audioSpeaker.textToSpeech(options: self.options, text: lastMessage.text)
-                }
-            }
+            await audioTranscriber.startRecording(language: chatBot.getResponseLanguage())
         }
     }
     
     private func stopSpeaking() {
         self.audioSpeaker.stopAudio()
+    }
+    
+    private func toggleAutoTranscribe() {
+        self.autoTranscribe = !autoTranscribe
     }
 
 }
@@ -276,14 +349,16 @@ struct MessagingView_Previews: PreviewProvider {
     
     static var previews: some View {
         MessagingView(
-            bot: TestBot(
+            bot: ListeningPracticeBot(
                 options: Options()
             ),
             tools: Tools(
                 options: Options()
             ),
-            autoPlayEnabled: false,
-            tokenizeTextEnabled: true
+            autoPlayEnabled: true,
+            tokenizeTextEnabled: false,
+            autoContinueEnabled: true,
+            autoTranscribe: false
         ).environmentObject(Options())
     }
     

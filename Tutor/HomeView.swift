@@ -48,7 +48,9 @@ struct HomeView: View {
                             ),
                             tools: Tools(options: options),
                             autoPlayEnabled: false,
-                            tokenizeTextEnabled: false
+                            tokenizeTextEnabled: false,
+                            autoContinueEnabled: false,
+                            autoTranscribe: true,
                         )
                     ) {
                         Text("Translate to \(options.learningLanguage.label)")
@@ -67,7 +69,9 @@ struct HomeView: View {
                             ),
                             tools: Tools(options: options),
                             autoPlayEnabled: false,
-                            tokenizeTextEnabled: false
+                            tokenizeTextEnabled: false,
+                            autoContinueEnabled: false,
+                            autoTranscribe: true,
                         )
                     ) {
                         Text("Translate from \(options.learningLanguage.label)")
@@ -85,7 +89,9 @@ struct HomeView: View {
                             ),
                             tools: Tools(options: options),
                             autoPlayEnabled: false,
-                            tokenizeTextEnabled: false
+                            tokenizeTextEnabled: false,
+                            autoContinueEnabled: false,
+                            autoTranscribe: true,
                         )
                     ) {
                         Text("Phrase practice")
@@ -103,7 +109,9 @@ struct HomeView: View {
                             ),
                             tools: Tools(options: options),
                             autoPlayEnabled: false,
-                            tokenizeTextEnabled: false
+                            tokenizeTextEnabled: false,
+                            autoContinueEnabled: false,
+                            autoTranscribe: false,
                         )
                     ) {
                         Text("Quiz")
@@ -115,7 +123,36 @@ struct HomeView: View {
                     }
                     
                     NavigationLink(
-                        destination: ConversationView()
+                        destination: MessagingView(
+                            bot: ListeningPracticeBot(
+                                options: options
+                            ),
+                            tools: Tools(options: options),
+                            autoPlayEnabled: true,
+                            tokenizeTextEnabled: false,
+                            autoContinueEnabled: true,
+                            autoTranscribe: false,
+                        )
+                    ) {
+                        Text("Listening Practice")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.mint)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    
+                    NavigationLink(
+                        destination: MessagingView(
+                            bot: ConversationBot(
+                                options: options,
+                            ),
+                            tools: Tools(options: options),
+                            autoPlayEnabled: true,
+                            tokenizeTextEnabled: true,
+                            autoContinueEnabled: false,
+                            autoTranscribe: true,
+                        )
                     ) {
                         Text("Start Conversation")
                             .frame(maxWidth: .infinity)

@@ -9,19 +9,19 @@ class PhraseBot: ChatBot {
         self.options = options
     }
     
-    public func getInitialPrompt() async throws -> String? {
+    public func getInitialPrompt() async throws -> [ChatBotMessage]? {
         return nil
     }
     
-    public func getAnswer(for userInput: String) async throws -> [String]? {
-        let answer = self.options.conversationPrompt.answer.replacingOccurrences(of: "{{.Answer}}", with: userInput)
+    public func getAnswer(for userInput: String) async throws -> [ChatBotMessage]? {
+        let answer = self.options.phraseCorrectionPrompt.answer.replacingOccurrences(of: "{{.Answer}}", with: userInput)
         let systemPrompt = replaceVariables(prompt: options.phraseCorrectionPrompt.system)
         let history: [ChatCompletionParameters.Message] = [
             .init(role: .system, content: .text(systemPrompt)),
             .init(role: .user, content: .text(answer))
         ]
         let response = try await ChatGptClient.client.getRawResponse(messages: history, responseFormat: .text)
-        return [ response ]
+        return [ ChatBotMessage(message: response, language: options.nativeLanguage.value) ]
     }
     
     func getResponseLanguage() -> String {

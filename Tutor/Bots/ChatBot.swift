@@ -7,10 +7,15 @@
 
 import Foundation
 
+struct ChatBotMessage {
+    let message: String
+    let language: String
+}
+
 protocol ChatBot {
     
-    func getInitialPrompt() async throws -> String?
-    func getAnswer(for userInput: String) async throws -> [String]?
+    func getInitialPrompt() async throws -> [ChatBotMessage]?
+    func getAnswer(for userInput: String) async throws -> [ChatBotMessage]?
     func getResponseLanguage() -> String
     
 }
